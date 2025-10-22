@@ -1,0 +1,39 @@
+steps:
+  # Print all needed variables
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'echo "The value of _SERVICE_NAME is: $_SERVICE_NAME"'
+      - 'echo "The value of _ARTIFACT_REPO is: ${_ARTIFACT_REPO}"'
+      - 'echo "The value of PROJECT_ID is: $PROJECT_ID"'
+      - 'echo "The value of COMMIT_SHA is: $COMMIT_SHA"'
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REPO}/$_SERVICE_NAME:$COMMIT_SHA'
+      - '--build-arg'
+      - 'SERVICE_NAME=$_SERVICE_NAME'
+      - '.'
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_ARTIFACT_REPO}/$_SERVICE_NAME:$COMMIT_SHA'
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '$_SERVICE_NAME'
+      - '--image'
+      - '${_ARTIFACT_REPO}/$_SERVICE_NAME:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+options:
+  logging: CLOUD_LOGGING_ONLY

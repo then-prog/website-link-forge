@@ -1,0 +1,31 @@
+variables:
+  DOCKER_DRIVER: overlay2
+
+stages:
+  - deploy
+
+.deploy:abstract:
+  stage: deploy
+  image: google/cloud-sdk
+  services:
+    - docker:dind
+  script:
+    - echo $GCP_SERVICE_KEY > gcloud-service-key.json # Google Cloud service accounts
+    - gcloud auth activate-service-account --key-file gcloud-service-key.json
+    - gcloud config set project $GCP_PROJECT_ID
+    - echo "Check GCP service name variable name $GCP_SERVICE_NAME"
+    - gcloud builds submit . --config=cloudbuild.yml --substitutions=COMMIT_SHA=$CI_COMMIT_SHORT_SHA,_SERVICE_NAME=$GCP_SERVICE_NAME,_ARTIFACT_REPO=$GCP_ARTIFACT_REPO
+
+# --- env: production ----------------------------------------------------------------------
+.job-rules:production:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "testing_deploy"'
+
+deploy:production:
+  extends:
+    - .deploy:abstract
+  environment:
+    name: production
+  rules:
+    - !reference [".job-rules:production", "rules"]
